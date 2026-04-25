@@ -47,13 +47,13 @@ class VectorStore:
             )
             return response.data[0].embedding
         except Exception as e:
-            print(f"生成向量失败: {e}")
+            print("生成向量失败: {}".format(e))
             return None
     
     def load_raw_knowledge(self, file_path="data/raw_knowledge.txt"):
         """加载原始知识文本"""
         if not os.path.exists(file_path):
-            print(f"知识文件不存在: {file_path}")
+            print("知识文件不存在: {}".format(file_path))
             return []
         
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -67,7 +67,7 @@ class VectorStore:
         """保存知识库到 JSON"""
         with open(self.knowledge_base_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"知识库已保存到: {self.knowledge_base_path}")
+        print("知识库已保存到: {}".format(self.knowledge_base_path))
     
     def load_knowledge_base(self):
         """加载向量化数据"""
@@ -81,7 +81,7 @@ class VectorStore:
         """初始化知识库流程: 检查 -> 向量化 -> 保存"""
         # 1. 检查是否已存在
         if self.check_knowledge_base_exists():
-            print("✓ 知识库已存在,跳过向量化")
+            print("知识库已存在,跳过向量化")
             return self.load_knowledge_base()
         
         print("开始初始化知识库...")
@@ -89,22 +89,22 @@ class VectorStore:
         # 2. 加载原始知识
         paragraphs = self.load_raw_knowledge()
         if not paragraphs:
-            print("⚠ 未找到知识内容,创建空知识库")
+            print("未找到知识内容,创建空知识库")
             empty_kb = {"entries": [], "version": "1.0"}
             self.save_knowledge_base(empty_kb)
             return empty_kb
         
-        print(f"✓ 加载了 {len(paragraphs)} 段知识文本")
+        print("加载了 {} 段知识文本".format(len(paragraphs)))
         
         # 3. 向量化处理
         entries = []
         for i, paragraph in enumerate(paragraphs):
-            print(f"正在向量化第 {i+1}/{len(paragraphs)} 段...")
+            print("正在向量化第 {}/{} 段...".format(i+1, len(paragraphs)))
             
             # 生成向量
             embedding = self.create_embeddings(paragraph)
             if embedding is None:
-                print(f"⚠ 第 {i+1} 段向量化失败,跳过")
+                print("第 {} 段向量化失败,跳过".format(i+1))
                 continue
             
             # 生成唯一 ID
@@ -130,7 +130,7 @@ class VectorStore:
         }
         
         self.save_knowledge_base(knowledge_base)
-        print(f"✓ 知识库初始化完成,共 {len(entries)} 条记录")
+        print("知识库初始化完成,共 {} 条记录".format(len(entries)))
         
         return knowledge_base
     

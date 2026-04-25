@@ -6,7 +6,7 @@
 
 - **智能知识库**: 自动向量化文本，基于相似度检索相关知识
 - **多轮对话**: 维护会话上下文，支持连续对话
-- **工具调用**: AI 可自主判断并调用外部工具（如表单提交）
+- **工具调用**: AI 可自主判断并调用外部工具（如天气查询、表单提交）
 - **前后端分离**: React 前端 + Flask 后端，易于扩展和维护
 - **模块化设计**: 清晰的架构，方便功能扩展
 - **配置化管理**: JSON 配置文件，灵活可调
@@ -23,8 +23,13 @@ customer/
 │   ├── modules/         # 后端模块
 │   │   ├── assistant.py    # AI 助手管理
 │   │   ├── vector_store.py # 知识库向量化
-│   │   ├── tools.py        # 工具函数
-│   │   └── airtable_api.py # Airtable API
+│   │   ├── plugins/        # 插件定义与基类
+│   │   │   ├── __init__.py
+│   │   │   └── base.py
+│   │   └── tools/          # 工具插件
+│   │       ├── __init__.py
+│   │       ├── weather_plugin.py
+│   │       └── submit_form_plugin.py
 │   └── ...
 │
 └── frontend/            # React 前端 (Vite)
@@ -151,7 +156,7 @@ AIRTABLE_TABLE_NAME=Customers
 1. **准备知识库**: 编辑 `backend/data/raw_knowledge.txt`，添加你的业务知识
 2. **启动服务**: 按照上面的步骤启动前后端服务
 3. **开始对话**: 在浏览器中访问前端地址，与智能客服对话
-4. **工具调用**: 当客户需要提供信息时，AI 会自动调用表单提交工具
+4. **工具调用**: 当客户需要提供信息时，AI 会自动调用表单提交工具；当客户询问天气时，AI 会自动调用天气查询工具
 
 ## 🛠️ 自定义扩展
 
@@ -159,9 +164,10 @@ AIRTABLE_TABLE_NAME=Customers
 编辑 `backend/assistant.json` 中的 `instructions` 字段来调整 AI 的行为
 
 ### 添加新工具
-1. 在 `backend/modules/tools.py` 添加工具定义
-2. 在 `execute_tool()` 函数中添加执行逻辑
-3. 更新 `backend/assistant.json` 中的工具列表
+1. 在 `backend/modules/tools/` 目录下创建新的插件文件
+2. 继承 `ToolPlugin` 基类并实现相关功能
+3. 在插件文件末尾注册插件到 `tool_registry`
+4. 重启服务，新工具会自动注册
 
 ### 更新知识库
 1. 修改 `backend/data/raw_knowledge.txt`

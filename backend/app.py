@@ -16,7 +16,7 @@ load_dotenv()
 # 导入模块
 from modules.assistant import get_assistant, Assistant
 from modules.vector_store import get_vector_store
-from modules.tools import execute_tool
+from modules.plugins import tool_registry
 
 # 创建 Flask 应用
 app = Flask(__name__)
@@ -41,27 +41,27 @@ def init_system():
     try:
         vector_store_instance = get_vector_store()
         vector_store_instance.init_knowledge_base()
-        print("✓ 知识库初始化完成")
+        print("知识库初始化完成")
     except Exception as e:
-        print(f"⚠ 知识库初始化警告: {e}")
+        print("知识库初始化警告: {}".format(e))
     
     # 2. 初始化助手
     print("\n[2/3] 初始化AI助手...")
     try:
         assistant_instance = get_assistant()
-        print("✓ AI助手初始化完成")
+        print("AI助手初始化完成")
     except Exception as e:
-        print(f"✗ AI助手初始化失败: {e}")
+        print("AI助手初始化失败: {}".format(e))
         raise
     
     # 3. 打印状态
     print("\n[3/3] 系统状态检查...")
-    print(f"  - API 客户端: {'✓' if assistant_instance.client else '✗'}")
-    print(f"  - 模型: {assistant_instance.model}")
-    print(f"  - 知识库: {'✓' if vector_store_instance else '✗'}")
+    print("  - API 客户端: {}  ".format("成功" if assistant_instance.client else "失败"))
+    print("  - 模型: {}".format(assistant_instance.model))
+    print("  - 知识库: {}  ".format("成功" if vector_store_instance else "失败"))
     
     print("\n" + "=" * 50)
-    print("✓ 智能客服系统就绪!")
+    print("智能客服系统就绪!")
     print("=" * 50)
     print("\n服务地址: http://localhost:5000")
     print("API 文档:")
@@ -122,27 +122,27 @@ def chat():
         user_message = data['message']
         session_id = data.get('session_id', str(uuid.uuid4()))
         
-        print(f"\n[对话请求] Session: {session_id}")
-        print(f"用户: {user_message}")
+        print("\n[对话请求] Session: {}".format(session_id))
+        print("用户: {}".format(user_message))
         
         # 2. 调用助手对话
         result = assistant_instance.chat(session_id, user_message)
         
         # 3. 检查是否需要调用工具
         if result['tool_calls']:
-            print(f"检测到 {len(result['tool_calls'])} 个工具调用")
+            print("检测到 {} 个工具调用".format(len(result['tool_calls'])))
             
             for tool_call in result['tool_calls']:
                 tool_name = tool_call['name']
                 tool_args = tool_call['arguments']
                 tool_call_id = tool_call['id']
                 
-                print(f"调用工具: {tool_name}")
-                print(f"参数: {tool_args}")
+                print("调用工具: {}".format(tool_name))
+                print("参数: {}".format(tool_args))
                 
                 # 执行工具
-                tool_result = execute_tool(tool_name, tool_args)
-                print(f"工具执行结果: {tool_result}")
+                tool_result = tool_registry.execute(tool_name, tool_args)
+                print("工具执行结果: {}".format(tool_result))
                 
                 # 提交工具结果并获取最终回复
                 final_reply = assistant_instance.submit_tool_result(
@@ -151,7 +151,7 @@ def chat():
                     tool_result
                 )
                 
-                print(f"AI: {final_reply}")
+                print("AI: {}".format(final_reply))
                 
                 return jsonify({
                     "reply": final_reply,
@@ -161,7 +161,7 @@ def chat():
                 })
         
         # 4. 无工具调用,直接返回
-        print(f"AI: {result['content']}")
+        print("AI: {}".format(result['content']))
         
         return jsonify({
             "reply": result['content'],
@@ -171,7 +171,7 @@ def chat():
         })
         
     except Exception as e:
-        print(f"对话处理异常: {e}")
+        print("对话处理异常: {}".format(e))
         import traceback
         traceback.print_exc()
         return jsonify({

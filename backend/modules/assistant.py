@@ -6,7 +6,7 @@
 import json
 import os
 from openai import OpenAI
-from modules.tools import load_tools_from_config
+from modules.plugins import tool_registry
 
 
 class Assistant:
@@ -26,7 +26,8 @@ class Assistant:
             assistant_config = json.load(f)
         
         self.instructions = assistant_config.get('instructions', '')
-        self.tools_definition = assistant_config.get('tools', [])
+        # 使用注册表中的工具定义，而不是从配置文件加载
+        self.tools_definition = tool_registry.get_all_definitions()
         
         # 会话历史存储 {session_id: [messages]}
         self.sessions = {}
@@ -37,7 +38,7 @@ class Assistant:
             api_key=self.config['api_key'],
             base_url=self.config['base_url']
         )
-        print("✓ API 客户端初始化成功")
+        print("API 客户端初始化成功")
         return self.client
     
     def get_or_create_session(self, session_id):
