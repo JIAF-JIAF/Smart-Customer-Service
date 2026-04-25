@@ -7,6 +7,7 @@ import json
 import os
 from openai import OpenAI
 from modules.plugins import tool_registry
+from modules.context import ContextManager
 
 
 class Assistant:
@@ -29,9 +30,9 @@ class Assistant:
         # 使用注册表中的工具定义，而不是从配置文件加载
         self.tools_definition = tool_registry.get_all_definitions()
         
-        # 会话历史存储 {session_id: [messages]}
-        self.sessions = {}
-        
+        # 初始化上下文管理器
+        self.context_manager = ContextManager()
+    
     def init_client(self):
         """初始化 OpenAI 客户端(阿里云百炼)"""
         self.client = OpenAI(
@@ -43,12 +44,7 @@ class Assistant:
     
     def get_or_create_session(self, session_id):
         """获取或创建会话"""
-        if session_id not in self.sessions:
-            # 初始化会话,包含系统指令
-            self.sessions[session_id] = [
-                {"role": "system", "content": self.instructions}
-            ]
-        return self.sessions[session_id]
+        return self.context_manager.get_or_create_session(session_id, self.instructions)
     
     def chat(self, session_id, user_message):
         """
@@ -68,7 +64,10 @@ class Assistant:
         messages = self.get_or_create_session(session_id)
         
         # 添加用户消息
-        messages.append({"role": "user", "content": user_message})
+        self.context_manager.add_message(session_id, {
+            "role": "user", 
+            "content": user_message
+        })
         
         # 调用 API
         response = self.client.chat.completions.create(
@@ -82,8 +81,8 @@ class Assistant:
         choice = response.choices[0]
         assistant_message = choice.message
         
-        # 添加入历史记录
-        messages.append({
+        # 添加入历史记录（tool_calls 保存完整的 API 响应，便于调试和追溯）
+        self.context_manager.add_message(session_id, {
             "role": "assistant",
             "content": assistant_message.content or "",
             "tool_calls": assistant_message.tool_calls
@@ -99,6 +98,9 @@ class Assistant:
                     "arguments": json.loads(tc.function.arguments)
                 })
         
+        # 修剪会话历史，避免过长
+        self.context_manager.prune_session_history(session_id)
+        
         return {
             "content": assistant_message.content or "",
             "tool_calls": tool_calls
@@ -113,10 +115,10 @@ class Assistant:
             tool_call_id: 工具调用 ID
             tool_result: 工具执行结果
         """
-        messages = self.sessions.get(session_id, [])
+        messages = self.context_manager.get_session_history(session_id)
         
         # 添加工具结果
-        messages.append({
+        self.context_manager.add_message(session_id, {
             "role": "tool",
             "tool_call_id": tool_call_id,
             "content": json.dumps(tool_result, ensure_ascii=False)
@@ -133,10 +135,15 @@ class Assistant:
         choice = response.choices[0]
         assistant_message = choice.message
         
-        messages.append({
+        # 添加助手回复到历史记录
+        assistant_msg = {
             "role": "assistant",
             "content": assistant_message.content or ""
-        })
+        }
+        self.context_manager.add_message(session_id, assistant_msg)
+        
+        # 修剪会话历史，避免过长
+        self.context_manager.prune_session_history(session_id)
         
         return assistant_message.content or ""
 
