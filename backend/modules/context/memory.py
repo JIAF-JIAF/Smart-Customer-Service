@@ -7,11 +7,11 @@ import json
 from typing import List, Dict, Optional, Any
 
 
-class ContextManager:
-    """上下文管理器"""
+class Memory:
+    """记忆管理器"""
     
     def __init__(self):
-        """初始化上下文管理器"""
+        """初始化记忆管理器"""
         # 会话历史存储 {session_id: [messages]}
         self.sessions: Dict[str, List[Dict[str, Any]]] = {}
     

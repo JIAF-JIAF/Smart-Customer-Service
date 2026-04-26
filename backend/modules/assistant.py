@@ -5,7 +5,7 @@
 
 import json
 from openai import OpenAI
-from modules.context import ContextManager
+from modules.context import Memory
 
 
 class Assistant:
@@ -22,6 +22,7 @@ class Assistant:
                 - tools: 工具定义列表
                 - prompt: prompt 字符串（可选）
                 - aiClient: AI 客户端实例（可选）
+                - memory: 记忆管理器实例（可选）
         """
         with open(config_path, 'r', encoding='utf-8') as f:
             self.config = json.load(f)
@@ -43,14 +44,17 @@ class Assistant:
         self.tools_definition = []  # 工具定义列表
         self.tool_map = {}  # 工具名称到实例的映射
         
-        # 初始化上下文管理器
-        self.context_manager = ContextManager()
-        
         # 模块管理
         self.ragModule = None
         self.vectorStore = None
         
-        # 处理选项
+        # 初始化记忆管理器
+        if options and 'memory' in options:
+            self.context_manager = options['memory']
+        else:
+            self.context_manager = Memory()
+        
+        # 处理其他选项
         if options:
             if 'ragModule' in options:
                 self.ragModule = options['ragModule']

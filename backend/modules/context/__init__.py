@@ -2,6 +2,6 @@
 上下文管理模块包
 """
 
-from modules.context.context_manager import ContextManager
+from modules.context.memory import Memory
 
-__all__ = ['ContextManager']
+__all__ = ['Memory']

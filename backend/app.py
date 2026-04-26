@@ -16,6 +16,7 @@ from modules.vector_store import VectorStore
 from modules.rag import RAG
 from modules.ai_client import AIClient
 from modules.prompt import PromptManager
+from modules.context import Memory
  # 导入工具实例
 from modules.tools.submit_form_plugin import submit_form_tool
 from modules.tools.weather_plugin import weather_tool
@@ -88,13 +89,16 @@ def init_system():
     try:
         # 初始化 Prompt 管理器
         prompt_manager = PromptManager()
+        # 初始化记忆管理器
+        memory_instance = Memory()
         
         assistant_instance = Assistant(options={
             "prompt": prompt_manager.get_prompt("customer_service"),
             "ragModule": rag_instance,
             "vectorStore": vector_store_instance,
             "tools": [submit_form_tool, weather_tool],
-            "aiClient": ai_client
+            "aiClient": ai_client,
+            "memory": memory_instance
         })
         assistant_instance.init_client()
         print("AI 助手初始化完成")
