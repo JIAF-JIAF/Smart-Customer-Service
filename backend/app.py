@@ -11,9 +11,11 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # 导入模块
-from modules.assistant import get_assistant
-from modules.vector_store import get_vector_store
-from modules.rag import get_rag
+from modules.assistant import Assistant
+from modules.vector_store import VectorStore
+from modules.rag import RAG
+from modules.ai_client import AIClient
+from modules.prompt import PromptManager
  # 导入工具实例
 from modules.tools.submit_form_plugin import submit_form_tool
 from modules.tools.weather_plugin import weather_tool
@@ -53,40 +55,55 @@ def init_system():
     print("智能客服系统启动中...")
     print("=" * 50)
 
-    # 1. 初始化知识库
-    print("\n[1/4] 初始化知识库...")
+    # 1. 初始化 AI 客户端
+    print("\n[1/4] 初始化 AI 客户端...")
     try:
-        vector_store_instance = get_vector_store()
+        ai_client = AIClient(config_path="config.json")
+        print("AI 客户端初始化完成")
+    except Exception as e:
+        print("AI 客户端初始化失败: {}".format(e))
+        raise
+
+    # 2. 初始化知识库
+    print("\n[2/4] 初始化知识库...")
+    try:
+        vector_store_instance = VectorStore(ai_client=ai_client)
         kb_data = vector_store_instance.init_knowledge_base()
         print("知识库初始化完成")
     except Exception as e:
         print("知识库初始化警告: {}".format(e))
         kb_data = None
 
-    # 2. 初始化 RAG
-    print("\n[2/4] 初始化 RAG 检索器...")
+    # 3. 初始化 RAG
+    print("\n[3/4] 初始化 RAG 检索器...")
     try:
-        rag_instance = get_rag(kb_data)
+        rag_instance = RAG(kb_data)
         print("RAG 检索器初始化完成")
     except Exception as e:
         print("RAG 初始化警告: {}".format(e))
-        rag_instance = get_rag(kb_data)
+        rag_instance = RAG(kb_data)
 
-    # 3. 初始化助手
-    print("\n[3/4] 初始化AI助手...")
+    # 4. 初始化助手
+    print("\n[4/4] 初始化 AI 助手...")
     try:
-        assistant_instance = get_assistant({
-            'rag_module': rag_instance,
-            'vector_store': vector_store_instance,
-            'tools': [submit_form_tool, weather_tool]
+        # 初始化 Prompt 管理器
+        prompt_manager = PromptManager()
+        
+        assistant_instance = Assistant(options={
+            "prompt": prompt_manager.get_prompt("customer_service"),
+            "ragModule": rag_instance,
+            "vectorStore": vector_store_instance,
+            "tools": [submit_form_tool, weather_tool],
+            "aiClient": ai_client
         })
-        print("AI助手初始化完成")
+        assistant_instance.init_client()
+        print("AI 助手初始化完成")
     except Exception as e:
-        print("AI助手初始化失败: {}".format(e))
+        print("AI 助手初始化失败: {}".format(e))
         raise
 
-    # 4. 打印状态
-    print("\n[4/4] 系统状态检查...")
+    # 5. 打印状态
+    print("\n[5/5] 系统状态检查...")
     print("  - API 客户端: {}  ".format("成功" if assistant_instance.client else "失败"))
     print("  - 模型: {}".format(assistant_instance.model))
     print("  - 知识库: {}  ".format("成功" if vector_store_instance else "失败"))

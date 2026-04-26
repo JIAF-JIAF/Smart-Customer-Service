@@ -13,7 +13,6 @@ ENV/
 .env
 backend/config.json
 backend/knowledge_base.json
-backend/assistant.json
 
 # Node modules
 frontend/node_modules/
@@ -34,4 +33,4 @@ Thumbs.db
 
 # 测试和数据
 test.py
-data/raw_knowledge.txt
+test_chat.py

@@ -96,16 +96,3 @@ class RAG:
             return query
 
         return "【相关知识】\n{}\n\n【用户问题】\n{}".format(context, query)
-
-
-_rag = None
-
-
-def get_rag(knowledge_base: Optional[Dict] = None) -> RAG:
-    """获取 RAG 单例"""
-    global _rag
-    if _rag is None:
-        _rag = RAG(knowledge_base)
-    elif knowledge_base is not None:
-        _rag.set_knowledge_base(knowledge_base)
-    return _rag

@@ -10,26 +10,33 @@ from modules.context import ContextManager
 
 class Assistant:
     """AI 助手管理类"""
-    
+
     def __init__(self, config_path="config.json", options=None):
         """初始化助手
-        
+
         参数:
             config_path: 配置文件路径
-            options: 配置选项对象
+            options: 配置选项对象，可包含:
+                - ragModule: RAG 模块实例
+                - vectorStore: 向量存储实例
+                - tools: 工具定义列表
+                - prompt: prompt 字符串（可选）
+                - aiClient: AI 客户端实例（可选）
         """
         with open(config_path, 'r', encoding='utf-8') as f:
             self.config = json.load(f)
-        
+
         self.client = None
+        self.ai_client = None
         self.model = self.config.get('model', 'qwen3.6-flash')
-        
-        # 加载助手指令
-        assistant_config_path = self.config.get('assistant_config_path', 'assistant.json')
-        with open(assistant_config_path, 'r', encoding='utf-8') as f:
-            assistant_config = json.load(f)
-        
-        self.instructions = assistant_config.get('instructions', '')
+
+        if options and 'prompt' in options and options['prompt']:
+            self.instructions = options['prompt']
+        else:
+            assistant_config_path = self.config.get('assistant_config_path', 'assistant.json')
+            with open(assistant_config_path, 'r', encoding='utf-8') as f:
+                assistant_config = json.load(f)
+            self.instructions = assistant_config.get('instructions', '')
         
         # 初始化工具相关
         self.tools = []  # 工具实例列表
@@ -40,31 +47,33 @@ class Assistant:
         self.context_manager = ContextManager()
         
         # 模块管理
-        self.rag_module = None
-        self.vector_store = None
+        self.ragModule = None
+        self.vectorStore = None
         
         # 处理选项
         if options:
-            if 'rag_module' in options:
-                self.rag_module = options['rag_module']
-            if 'vector_store' in options:
-                self.vector_store = options['vector_store']
+            if 'ragModule' in options:
+                self.ragModule = options['ragModule']
+            if 'vectorStore' in options:
+                self.vectorStore = options['vectorStore']
             if 'tools' in options:
                 self.set_tools(options['tools'])
+            if 'aiClient' in options:
+                self.ai_client = options['aiClient']
     
-    def set_rag_module(self, rag_module, vector_store=None):
+    def set_rag_module(self, ragModule, vectorStore=None):
         """设置 RAG 模块
-        
+
         参数:
-            rag_module: RAG 模块实例
-            vector_store: 向量存储实例（用于生成嵌入）
+            ragModule: RAG 模块实例
+            vectorStore: 向量存储实例（用于生成嵌入）
         """
-        self.rag_module = rag_module
-        self.vector_store = vector_store
+        self.ragModule = ragModule
+        self.vectorStore = vectorStore
     
     def set_tools(self, tools):
         """设置工具实例
-        
+
         参数:
             tools: 工具实例列表，每个实例应包含 name、definition 和 execute 方法
         """
@@ -78,18 +87,18 @@ class Assistant:
     
     def enhance_query(self, user_message):
         """使用 RAG 增强查询
-        
+
         参数:
             user_message: 用户原始消息
             
         返回:
             增强后的消息
         """
-        if self.rag_module and self.vector_store:
+        if self.ragModule and self.vectorStore:
             try:
-                return self.rag_module.enhance_query(
+                return self.ragModule.enhance_query(
                     user_message,
-                    self.vector_store.create_embeddings,
+                    self.vectorStore.create_embeddings,
                     top_k=3
                 )
             except Exception as e:
@@ -99,11 +108,16 @@ class Assistant:
     
     def init_client(self):
         """初始化 OpenAI 客户端(阿里云百炼)"""
-        self.client = OpenAI(
-            api_key=self.config['api_key'],
-            base_url=self.config['base_url']
-        )
-        print("API 客户端初始化成功")
+        if self.ai_client:
+            self.client = self.ai_client.get_client()
+            print("使用传入的 AI 客户端")
+        else:
+            # 保持向后兼容，从配置文件读取
+            self.client = OpenAI(
+                api_key=self.config['api_key'],
+                base_url=self.config['base_url']
+            )
+            print("API 客户端初始化成功")
         return self.client
     
     def get_or_create_session(self, session_id):
@@ -276,30 +290,3 @@ class Assistant:
             "session_id": session_id,
             "finished": False
         }
-
-
-# 全局实例
-_assistant = None
-
-def get_assistant(options=None):
-    """获取助手单例
-    
-    参数:
-        options: 配置选项对象
-            - rag_module: RAG 模块实例（可选）
-            - vector_store: 向量存储实例（可选）
-            - tools: 工具定义列表（可选）
-    """
-    global _assistant
-    if _assistant is None:
-        _assistant = Assistant(options=options)
-        _assistant.init_client()
-    else:
-        # 如果提供了选项，更新配置
-        if options:
-            if 'rag_module' in options:
-                _assistant.set_rag_module(options['rag_module'], options.get('vector_store'))
-            if 'tools' in options:
-                _assistant.set_tools(options['tools'])
-    
-    return _assistant
