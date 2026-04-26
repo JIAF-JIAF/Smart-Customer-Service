@@ -20,7 +20,7 @@ class VectorStore:
         self.vector_store = None
         self.ai_client = ai_client
         self.knowledge_base = "knowledge_base"
-        self.chroma_db = "chroma_db"
+        self.chroma_db = "db"
     
     def init_embeddings(self):
         """初始化嵌入模型"""
@@ -111,9 +111,6 @@ class VectorStore:
         if not self.ai_client:
             self.init_embeddings()
         
-        # 确保 chroma_db 目录存在
-        os.makedirs(self.chroma_db, exist_ok=True)
-        
         # 简单的向量存储实现
         vector_data = []
         for split in splits:
@@ -125,11 +122,21 @@ class VectorStore:
                     "metadata": split["metadata"]
                 })
         
-        # 保存向量数据
-        with open(os.path.join(self.chroma_db, "vector_data.json"), 'w', encoding="utf-8") as f:
-            json.dump(vector_data, f, ensure_ascii=False, indent=2)
+        # 只有当向量数据非空时才存储
+        if vector_data:
+            # 确保 db 目录存在
+            os.makedirs(self.chroma_db, exist_ok=True)
+            
+            # 保存向量数据
+            with open(os.path.join(self.chroma_db, "vector_data.json"), 'w', encoding="utf-8") as f:
+                json.dump(vector_data, f, ensure_ascii=False, indent=2)
+            
+            self.vector_store = vector_data
+            print(f"向量存储创建成功，共 {len(vector_data)} 个向量")
+        else:
+            print("向量存储创建失败：没有生成有效的向量数据")
+            self.vector_store = None
         
-        self.vector_store = vector_data
         return vector_data
     
     def load_knowledge_base(self):
@@ -146,10 +153,19 @@ class VectorStore:
             try:
                 with open(vector_data_path, 'r', encoding="utf-8") as f:
                     vector_data = json.load(f)
-                self.vector_store = vector_data
-                return vector_data
+                
+                # 检查向量数据是否有效
+                if vector_data and isinstance(vector_data, list):
+                    self.vector_store = vector_data
+                    print(f"加载知识库成功，共 {len(vector_data)} 个向量")
+                    return vector_data
+                else:
+                    print("加载知识库失败：向量数据为空或格式无效")
+                    self.vector_store = None
+                    return None
             except Exception as e:
                 print(f"加载向量存储失败: {e}")
+                self.vector_store = None
                 return None
         return None
     
@@ -272,12 +288,19 @@ class VectorStore:
         
         # 创建向量存储
         vector_data = self.create_vector_store(splits)
-        print("知识库初始化完成")
         
-        return {
-            "status": "created",
-            "message": "知识库初始化完成",
-            "document_count": len(documents),
-            "chunk_count": len(splits),
-            "entries": vector_data
-        }
+        if vector_data:
+            print("知识库初始化完成")
+            return {
+                "status": "created",
+                "message": "知识库初始化完成",
+                "document_count": len(documents),
+                "chunk_count": len(splits),
+                "entries": vector_data
+            }
+        else:
+            print("知识库初始化失败：向量存储创建失败")
+            return {
+                "status": "failed",
+                "message": "知识库初始化失败：向量存储创建失败"
+            }
