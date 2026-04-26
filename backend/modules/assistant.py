@@ -123,15 +123,15 @@ class Assistant:
         """
         if not self.client:
             raise Exception("请先初始化客户端")
+
+        # 获取会话历史
+        messages = self.get_or_create_session(session_id)
         
         # 添加用户消息
         self.context_manager.add_message(session_id, {
             "role": "user", 
             "content": user_message
         })
-
-        # 获取会话历史
-        messages = self.get_or_create_session(session_id)
         
         # 调用 API
         response = self.client.chat.completions.create(
