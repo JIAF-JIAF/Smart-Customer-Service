@@ -3,7 +3,7 @@
 用于提交客户咨询表单,记录客户信息和咨询内容
 """
 
-from modules.plugins import tool_registry, ToolPlugin
+from .base import ToolPlugin
 
 
 # 工具定义
@@ -73,11 +73,9 @@ def _handle_submit_form(arguments):
     }
 
 
-# 注册插件
-tool_registry.register(
-    ToolPlugin(
-        name="submit_form",
-        definition=SUBMIT_FORM_DEFINITION,
-        handler=_handle_submit_form
-    )
+# 创建工具实例
+submit_form_tool = ToolPlugin(
+    name="submit_form",
+    definition=SUBMIT_FORM_DEFINITION,
+    handler=_handle_submit_form
 )

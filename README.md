@@ -28,9 +28,6 @@ customer/
 │   │   │   ├── __init__.py
 │   │   │   └── context_manager.py
 │   │   ├── rag.py          # RAG 检索模块
-│   │   ├── plugins/        # 插件定义与基类
-│   │   │   ├── __init__.py
-│   │   │   └── base.py
 │   │   └── tools/          # 工具插件
 │   │       ├── __init__.py
 │   │       ├── weather_plugin.py
@@ -93,18 +90,6 @@ npm run dev
 在浏览器中打开: `http://localhost:5173`
 
 ## 🔧 配置说明
-
-### 环境变量 (.env)
-
-```env
-# 必填 - 阿里云百炼 API Key
-DASHSCOPE_API_KEY=your_api_key_here
-
-# 可选 - Airtable 表单功能
-AIRTABLE_API_TOKEN=your_token
-AIRTABLE_BASE_ID=your_base_id
-AIRTABLE_TABLE_NAME=Customers
-```
 
 ### 系统配置 (config.json)
 
@@ -171,9 +156,10 @@ AIRTABLE_TABLE_NAME=Customers
 
 ### 添加新工具
 1. 在 `backend/modules/tools/` 目录下创建新的插件文件
-2. 继承 `ToolPlugin` 基类并实现相关功能
-3. 在插件文件末尾注册插件到 `tool_registry`
-4. 重启服务，新工具会自动注册
+2. 定义工具实例，包含名称、定义和处理函数
+3. 在插件文件末尾创建并导出工具实例
+4. 在 `app.py` 中导入新的工具实例并添加到工具列表
+5. 重启服务，新工具会被注册并使用
 
 ### 更新知识库
 1. 修改 `backend/data/raw_knowledge.txt`

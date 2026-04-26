@@ -4,7 +4,7 @@
 """
 
 import requests
-from modules.plugins import tool_registry, ToolPlugin
+from .base import ToolPlugin
 
 
 # 工具定义
@@ -12,7 +12,7 @@ GET_WEATHER_DEFINITION = {
     "type": "function",
     "function": {
         "name": "get_weather",
-        "description": "查询指定城市的实时天气和预报信息。用户必须提供具体的城市名称。",
+        "description": "查询指定城市的实时天气和预报信息。当用户询问天气情况但未指定城市时，先使用此工具并提示用户提供城市名称。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -75,11 +75,9 @@ def _handle_get_weather(arguments):
     }
 
 
-# 注册插件
-tool_registry.register(
-    ToolPlugin(
-        name="get_weather",
-        definition=GET_WEATHER_DEFINITION,
-        handler=_handle_get_weather
-    )
+# 创建工具实例
+weather_tool = ToolPlugin(
+    name="get_weather",
+    definition=GET_WEATHER_DEFINITION,
+    handler=_handle_get_weather
 )

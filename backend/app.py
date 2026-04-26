@@ -3,14 +3,20 @@
 Flask Web 服务入口
 """
 
-import json
-import time
 import uuid
 import sys
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+
+# 导入模块
+from modules.assistant import get_assistant
+from modules.vector_store import get_vector_store
+from modules.rag import get_rag
+ # 导入工具实例
+from modules.tools.submit_form_plugin import submit_form_tool
+from modules.tools.weather_plugin import weather_tool
 
 # 确保系统默认编码为 UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -25,12 +31,6 @@ os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 # 加载环境变量
 load_dotenv()
-
-# 导入模块
-from modules.assistant import get_assistant, Assistant
-from modules.vector_store import get_vector_store
-from modules.rag import get_rag
-from modules.plugins import tool_registry
 
 # 创建 Flask 应用
 app = Flask(__name__)
@@ -75,7 +75,11 @@ def init_system():
     # 3. 初始化助手
     print("\n[3/4] 初始化AI助手...")
     try:
-        assistant_instance = get_assistant()
+        assistant_instance = get_assistant({
+            'rag_module': rag_instance,
+            'vector_store': vector_store_instance,
+            'tools': [submit_form_tool, weather_tool]
+        })
         print("AI助手初始化完成")
     except Exception as e:
         print("AI助手初始化失败: {}".format(e))
@@ -153,61 +157,11 @@ def chat():
         print("\n[对话请求] Session: {}".format(session_id))
         print("用户: {}".format(user_message))
 
-        # 2. RAG 增强查询
-        if rag_instance:
-            try:
-                user_message = rag_instance.enhance_query(
-                    user_message,
-                    vector_store_instance.create_embeddings,
-                    top_k=3
-                )
-            except Exception as e:
-                print("RAG 检索失败: {}".format(e))
-
-        # 3. 调用助手对话
-        result = assistant_instance.chat(session_id, user_message)
+        # 2. 处理完整的对话流程
+        result = assistant_instance.process_message(session_id, user_message)
         
-        # 4. 检查是否需要调用工具
-        if result['tool_calls']:
-            print("检测到 {} 个工具调用".format(len(result['tool_calls'])))
-
-            for tool_call in result['tool_calls']:
-                tool_name = tool_call['name']
-                tool_args = tool_call['arguments']
-                tool_call_id = tool_call['id']
-
-                print("调用工具: {}".format(tool_name))
-                print("参数: {}".format(tool_args))
-
-                # 执行工具
-                tool_result = tool_registry.execute(tool_name, tool_args)
-                print("工具执行结果: {}".format(tool_result))
-                
-                # 提交工具结果并获取最终回复
-                final_reply = assistant_instance.submit_tool_result(
-                    session_id, 
-                    tool_call_id, 
-                    tool_result
-                )
-                
-                print("AI: {}".format(final_reply))
-                
-                return jsonify({
-                    "reply": final_reply,
-                    "tool_calls": [tool_call],
-                    "session_id": session_id,
-                    "finished": False
-                })
-        
-        # 5. 无工具调用,直接返回
-        print("AI: {}".format(result['content']))
-        
-        return jsonify({
-            "reply": result['content'],
-            "tool_calls": [],
-            "session_id": session_id,
-            "finished": False
-        })
+        # 3. 返回结果
+        return jsonify(result)
         
     except Exception as e:
         print("对话处理异常: {}".format(e))
