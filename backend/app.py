@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 # 导入模块
 from modules.assistant import Assistant
-from modules.vector_store import VectorStore
+from modules.store.vector_store import VectorStore
 from modules.rag import RAG
 from modules.ai_client import AIClient
 from modules.prompt import PromptManager
