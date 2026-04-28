@@ -20,6 +20,7 @@ from modules.context import Memory
  # 导入工具实例
 from modules.tools.submit_form_plugin import submit_form_tool
 from modules.tools.weather_plugin import weather_tool
+from modules.tools.weather_recommend_plugin import weather_recommend_tool
 
 # 确保系统默认编码为 UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -94,7 +95,7 @@ def init_system():
             "prompt": PromptTemplate.from_messages(CUSTOMER_SERVICE_PROMPT),
             "ragModule": rag_instance,
             "vectorStore": vector_store_instance,
-            "tools": [submit_form_tool, weather_tool],
+            "tools": [submit_form_tool, weather_tool, weather_recommend_tool],
             "aiClient": ai_client,
             "memory": memory_instance
         })

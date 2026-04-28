@@ -231,7 +231,7 @@ class Assistant:
     
     def process_message(self, session_id, user_message):
         """
-        处理完整的对话流程
+        处理完整的对话流程，支持多步骤链式工具调用
         
         参数:
             session_id: 会话 ID
@@ -246,10 +246,11 @@ class Assistant:
         # 2. 调用助手对话
         result = self.chat(session_id, enhanced_message)
         
-        # 3. 检查是否需要调用工具
-        if result['tool_calls']:
+        # 3. 循环处理工具调用（支持链式调用）
+        while result['tool_calls']:
             print("检测到 {} 个工具调用".format(len(result['tool_calls'])))
 
+            # 执行所有工具调用（按顺序）
             for tool_call in result['tool_calls']:
                 tool_name = tool_call['name']
                 tool_args = tool_call['arguments']
@@ -270,21 +271,49 @@ class Assistant:
                     }
                     print("工具执行失败: 未知工具 {}".format(tool_name))
                 
-                # 提交工具结果并获取最终回复
-                final_reply = self.submit_tool_result(
-                    session_id, 
-                    tool_call_id, 
-                    tool_result
-                )
-                
-                print("AI: {}".format(final_reply))
-                
-                return {
-                    "reply": final_reply,
-                    "tool_calls": [tool_call],
-                    "session_id": session_id,
-                    "finished": False
-                }
+                # 提交工具结果到会话历史
+                self.memory.add_message(session_id, {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": json.dumps(tool_result, ensure_ascii=False)
+                })
+            
+            # 继续对话，检查是否需要更多工具调用
+            messages = self.memory.get_session_history(session_id)
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=self.tools_definition if self.tools_definition else None,
+                tool_choice="auto"
+            )
+            
+            choice = response.choices[0]
+            assistant_message = choice.message
+            
+            # 更新历史记录
+            self.memory.add_message(session_id, {
+                "role": "assistant",
+                "content": assistant_message.content or "",
+                "tool_calls": assistant_message.tool_calls
+            })
+            
+            # 检查是否还有工具调用
+            tool_calls = []
+            if assistant_message.tool_calls:
+                for tc in assistant_message.tool_calls:
+                    tool_calls.append({
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "arguments": json.loads(tc.function.arguments)
+                    })
+            
+            result = {
+                "content": assistant_message.content or "",
+                "tool_calls": tool_calls
+            }
+            
+            # 修剪会话历史
+            self.memory.prune_session_history(session_id)
         
         # 4. 无工具调用,直接返回
         print("AI: {}".format(result['content']))
@@ -293,5 +322,5 @@ class Assistant:
             "reply": result['content'],
             "tool_calls": [],
             "session_id": session_id,
-            "finished": False
+            "finished": True
         }

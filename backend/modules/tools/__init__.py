@@ -6,5 +6,6 @@
 # 导入所有工具插件以触发自动注册
 from . import weather_plugin
 from . import submit_form_plugin
+from . import weather_recommend_plugin
 
 __all__ = []
