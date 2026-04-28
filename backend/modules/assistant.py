@@ -31,13 +31,10 @@ class Assistant:
         self.ai_client = None
         self.model = self.config.get('model', 'qwen3.6-flash')
 
-        if options and 'prompt' in options and options['prompt']:
-            self.instructions = options['prompt']
+        if options and 'prompt' in options:
+            self.prompt = options['prompt']
         else:
-            assistant_config_path = self.config.get('assistant_config_path', 'assistant.json')
-            with open(assistant_config_path, 'r', encoding='utf-8') as f:
-                assistant_config = json.load(f)
-            self.instructions = assistant_config.get('instructions', '')
+            self.prompt = None
         
         # 初始化工具相关
         self.tools = []  # 工具实例列表
@@ -50,9 +47,9 @@ class Assistant:
         
         # 初始化记忆管理器
         if options and 'memory' in options:
-            self.context_manager = options['memory']
+            self.memory = options['memory']
         else:
-            self.context_manager = Memory()
+            self.memory = Memory()
         
         # 处理其他选项
         if options:
@@ -124,33 +121,38 @@ class Assistant:
             print("API 客户端初始化成功")
         return self.client
     
-    def get_or_create_session(self, session_id):
-        """获取或创建会话"""
-        return self.context_manager.get_or_create_session(session_id, self.instructions)
-    
+    def get_session(self, session_id):
+        """获取会话"""
+        return self.memory.get_session(session_id)
+
+    def create_session(self, session_id):
+        """创建会话"""
+        system_content = self.prompt.format()["content"] if self.prompt else ""
+        return self.memory.create_session(session_id, system_content)
+
     def chat(self, session_id, user_message):
         """
         发送对话消息
-        
+
         参数:
             session_id: 会话 ID
             user_message: 用户消息
-        
+
         返回:
             dict: 包含回复内容和工具调用信息
         """
         if not self.client:
             raise Exception("请先初始化客户端")
 
-        # 获取会话历史
-        messages = self.get_or_create_session(session_id)
-        
+        # 获取或创建会话
+        messages = self.get_session(session_id)
+        if messages is None:
+            messages = self.create_session(session_id)
+
         # 添加用户消息
-        self.context_manager.add_message(session_id, {
-            "role": "user", 
-            "content": user_message
-        })
-        
+        if user_message:
+            self.memory.add_message(session_id, {"role": "user", "content": user_message})
+
         # 调用 API
         response = self.client.chat.completions.create(
             model=self.model,
@@ -158,18 +160,18 @@ class Assistant:
             tools=self.tools_definition if self.tools_definition else None,
             tool_choice="auto"
         )
-        
+
         # 获取助手回复
         choice = response.choices[0]
         assistant_message = choice.message
-        
-        # 添加入历史记录（tool_calls 保存完整的 API 响应，便于调试和追溯）
-        self.context_manager.add_message(session_id, {
+
+        # 添加入历史记录
+        self.memory.add_message(session_id, {
             "role": "assistant",
             "content": assistant_message.content or "",
             "tool_calls": assistant_message.tool_calls
         })
-        
+
         # 检查是否有工具调用
         tool_calls = []
         if assistant_message.tool_calls:
@@ -179,53 +181,52 @@ class Assistant:
                     "name": tc.function.name,
                     "arguments": json.loads(tc.function.arguments)
                 })
-        
+
         # 修剪会话历史，避免过长
-        self.context_manager.prune_session_history(session_id)
-        
+        self.memory.prune_session_history(session_id)
+
         return {
             "content": assistant_message.content or "",
             "tool_calls": tool_calls
         }
-    
+
     def submit_tool_result(self, session_id, tool_call_id, tool_result):
         """
         提交工具执行结果
-        
+
         参数:
             session_id: 会话 ID
             tool_call_id: 工具调用 ID
             tool_result: 工具执行结果
         """
-        messages = self.context_manager.get_session_history(session_id)
-        
         # 添加工具结果
-        self.context_manager.add_message(session_id, {
+        self.memory.add_message(session_id, {
             "role": "tool",
             "tool_call_id": tool_call_id,
             "content": json.dumps(tool_result, ensure_ascii=False)
         })
-        
+
         # 继续对话
+        messages = self.memory.get_session_history(session_id)
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             tools=self.tools_definition if self.tools_definition else None
         )
-        
+
         # 获取最终回复
         choice = response.choices[0]
         assistant_message = choice.message
-        
+
         # 添加助手回复到历史记录
-        self.context_manager.add_message(session_id, {
+        self.memory.add_message(session_id, {
             "role": "assistant",
             "content": assistant_message.content or ""
         })
-        
+
         # 修剪会话历史，避免过长
-        self.context_manager.prune_session_history(session_id)
-        
+        self.memory.prune_session_history(session_id)
+
         return assistant_message.content or ""
     
     def process_message(self, session_id, user_message):

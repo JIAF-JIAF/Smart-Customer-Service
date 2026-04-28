@@ -15,7 +15,7 @@ from modules.assistant import Assistant
 from modules.store.vector_store import VectorStore
 from modules.rag import RAG
 from modules.ai_client import AIClient
-from modules.prompt import PromptManager
+from modules.prompt import PromptTemplate, CUSTOMER_SERVICE_PROMPT
 from modules.context import Memory
  # 导入工具实例
 from modules.tools.submit_form_plugin import submit_form_tool
@@ -87,13 +87,11 @@ def init_system():
     # 4. 初始化助手
     print("\n[4/4] 初始化 AI 助手...")
     try:
-        # 初始化 Prompt 管理器
-        prompt_manager = PromptManager()
         # 初始化记忆管理器
         memory_instance = Memory()
-        
+
         assistant_instance = Assistant(options={
-            "prompt": prompt_manager.get_prompt("customer_service"),
+            "prompt": PromptTemplate.from_messages(CUSTOMER_SERVICE_PROMPT),
             "ragModule": rag_instance,
             "vectorStore": vector_store_instance,
             "tools": [submit_form_tool, weather_tool],
@@ -178,11 +176,19 @@ def chat():
         print("\n[对话请求] Session: {}".format(session_id))
         print("用户: {}".format(user_message))
 
-        # 2. 处理完整的对话流程
+        # 2. 调用助手对话
         result = assistant_instance.process_message(session_id, user_message)
-        
+
+        # 3. 转换返回结构
+        response = {
+            "reply": result.get("reply", ""),
+            "tool_calls": result.get("tool_calls", []),
+            "session_id": session_id,
+            "finished": False
+        }
+
         # 3. 返回结果
-        return jsonify(result)
+        return jsonify(response)
         
     except Exception as e:
         print("对话处理异常: {}".format(e))

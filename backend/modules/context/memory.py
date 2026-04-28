@@ -15,26 +15,34 @@ class Memory:
         # 会话历史存储 {session_id: [messages]}
         self.sessions: Dict[str, List[Dict[str, Any]]] = {}
     
-    def get_or_create_session(self, session_id: str, system_instructions: str = "") -> List[Dict[str, Any]]:
+    def get_session(self, session_id: str) -> Optional[List[Dict[str, Any]]]:
         """
-        获取或创建会话
-        
+        获取会话（不存在则返回 None）
+
+        参数:
+            session_id: 会话 ID
+
+        返回:
+            会话历史列表，不存在则返回 None
+        """
+        return self.sessions.get(session_id, None)
+
+    def create_session(self, session_id: str, system_instructions: str = "") -> List[Dict[str, Any]]:
+        """
+        创建新会话
+
         参数:
             session_id: 会话 ID
             system_instructions: 系统指令
-            
+
         返回:
             会话历史列表
         """
-        if session_id not in self.sessions:
-            # 初始化会话,包含系统指令
-            self.sessions[session_id] = []
-
-            if system_instructions:
-                self.sessions[session_id].append({"role": "system", "content": system_instructions})
-
+        self.sessions[session_id] = []
+        if system_instructions:
+            self.sessions[session_id].append({"role": "system", "content": system_instructions})
         return self.sessions[session_id]
-    
+
     def add_message(self, session_id: str, message: Dict[str, Any]) -> None:
         """
         添加消息到会话历史
